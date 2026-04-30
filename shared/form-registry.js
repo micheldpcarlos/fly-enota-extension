@@ -10,7 +10,9 @@
     {
       id: 'flyenota-exportacao',
       title: 'Fly e-Nota — Exportação de Serviços',
-      urlMatch: /e-gov\.betha\.com\.br\/e-nota\/contribuinte\/cad_dpsnotasfiscais\.faces/,
+      // Matches the production portal AND the Betha test environment
+      // (`/e-nota-test/` instead of `/e-nota/`).
+      urlMatch: /e-gov\.betha\.com\.br\/e-nota(?:-test)?\/contribuinte\/cad_dpsnotasfiscais\.faces/,
       storageKey: 'clientes:flyenota-exportacao',
       requiredFields: [
         'razaoSocial',
