@@ -1,22 +1,22 @@
-# Fly e-Nota Auto-fill — Chrome extension
+# Fly e-Nota Automator — Chrome extension
 
-Preenche notas de exportação de serviços no portal **Fly e-Nota** (Betha Sistemas) a partir de uma planilha de clientes.
+Automatiza o preenchimento de notas de exportação de serviços no portal **Fly e-Nota** (Betha Sistemas) a partir de uma planilha de clientes. Você importa um XLSX uma vez, escolhe o cliente no popup e a extensão preenche os 35 campos do formulário automaticamente. A emissão final continua manual — a extensão nunca clica em **Emitir**.
 
-## Status
+## Recursos
 
-| Fase | Conteúdo | Estado |
-|---|---|---|
-| P1 | Esqueleto: manifesto, popup, registry, storage, content-script router | ✅ |
-| P2 | Importação de XLSX (SheetJS) + visualizador em aba | ✅ |
-| P3 | Passos 1–15 do preenchimento (cabeçalho + tomador estrangeiro) | ✅ |
-| P4 | Passos 16–28 (serviço, NBS, clique na alíquota, comércio exterior) | ✅ |
-| P5 | Passos 29–35 (item + PIS/COFINS) | ✅ — falta smoke-test em produção |
-| P6 | Filtro no dropdown + toast injetado na página | ✅ |
+- 📥 Importa clientes de uma planilha XLSX e armazena no `chrome.storage.local`.
+- 🎯 Preenche automaticamente os 35 campos da DPS de exportação (incluindo o clique na linha de alíquota da LC 155/2016 quando aplicável).
+- 🔄 Funciona tanto no portal de produção quanto no ambiente de homologação (`/e-nota/` e `/e-nota-test/`).
+- 🟢 Indicador **Ativo / Inativo** no topo da popup mostra se a aba atual é a do Fly e-Nota.
+- 👁️ Cada campo preenchido é rolado até o centro da tela e ganha um flash visual.
+- 📋 Painel **Logs da última execução** (colapsado por padrão) com timestamp por passo, botões Copiar e Limpar.
+- 📊 Aba **Ver dados** com tabela completa dos clientes importados, busca e indicação de incompletos.
+- ⚠️ Linhas com colunas estruturadas faltando (`Logradouro`, `CEP`, `Município`…) entram marcadas como **incompletas** e o botão Aplicar fica bloqueado — corrija a planilha e re-importe.
 
 ## Instalar (recomendado)
 
 1. Vá para a página de [Releases](../../releases) e baixe o `fly-enota-extension-vX.Y.Z.zip` mais recente.
-2. Extraia o arquivo em uma pasta de sua preferência.
+2. Extraia o arquivo em uma pasta de sua preferência (não mova depois — o Chrome lê os arquivos do disco a cada inicialização).
 3. Abra `chrome://extensions` no Chrome.
 4. Ative **Modo do desenvolvedor** (canto superior direito).
 5. Clique em **Carregar sem compactação** e selecione a pasta extraída.
@@ -27,18 +27,37 @@ Preenche notas de exportação de serviços no portal **Fly e-Nota** (Betha Sist
 1. Clone este repositório.
 2. Em `chrome://extensions`, ligue **Modo do desenvolvedor**.
 3. **Carregar sem compactação** → selecione a pasta clonada (`fly-enota-extension/`).
-4. Fixe o ícone na barra de ferramentas para acesso rápido.
 
 ## Como usar
 
-1. Faça login no Fly e-Nota e abra a tela `Cadastro de DPS / Notas Fiscais`.
-2. Clique no ícone da extensão.
-3. **📥 Importar XLSX** — selecione a planilha de clientes. Clientes com colunas estruturadas em branco (`Logradouro`, `Município`, `CEP`, etc.) entram marcados como `⚠ incompleto` e não podem ser aplicados — corrija a planilha e re-importe.
-4. Use o campo de busca no topo do dropdown para filtrar por nome / ID / e-mail / cidade.
-5. Selecione o cliente e clique **Aplicar**.
-6. A popup pode fechar; um toast injetado no canto inferior direito da página mostra o progresso e o resultado.
-7. Revise o formulário e clique em **Emitir** manualmente — a extensão **nunca** emite a nota sozinha.
-8. **📊 Ver dados** abre uma tabela com todos os clientes importados, com pílulas de status e busca.
+1. Faça login no Fly e-Nota e abra a tela `Cadastro de DPS / Notas Fiscais` (produção ou test).
+2. Clique no ícone da extensão. O badge no topo deve mostrar **🟢 Ativo**.
+3. **📥 Importar XLSX** — selecione a planilha de clientes (uma vez por sessão; os dados ficam guardados localmente).
+4. Abra o dropdown **Cliente**, selecione o cliente desejado.
+5. Clique em **Aplicar no formulário** (ou pressione Enter).
+6. Acompanhe o progresso: cada campo é destacado conforme é preenchido.
+7. Revise o formulário e clique em **Emitir** manualmente.
+8. **📋 Logs da última execução** mostra o detalhe de cada passo se algo precisar ser investigado.
+9. **📊 Ver dados** abre uma aba com todos os clientes importados em formato de tabela.
+
+## Formato da planilha
+
+A extensão lê as seguintes colunas (case-insensitive, acentos ignorados):
+
+| Coluna | Campo no formulário | Obrigatório |
+|---|---|:---:|
+| `ID` | identificador interno | sim |
+| `CLIENT` | nome para exibição na lista | — |
+| `Nome/Razão Social` | Razão social | sim |
+| `Telefone` | Telefone | sim |
+| `E-mail` | E-mail | — |
+| `Logradouro`, `Número`, `Complemento` | Endereço | sim (exceto Complemento) |
+| `Estado` | Estado | sim |
+| `Município` | Município | sim |
+| `Código Postal` | CEP | sim |
+| `CURRENCY` | Código da moeda (USD, EUR, …) | sim |
+| `TOTAL` | Valor em moeda estrangeira | sim |
+| `TOTAL BRL` | Valor do serviço em BRL | sim |
 
 ## Adicionando outro formulário
 
@@ -73,6 +92,12 @@ fly-enota-extension/
 ├── viewer/       Aba "Ver dados"
 ├── content/      Script injetado na página + fillers por formulário
 ├── shared/       form-registry, storage, dom-utils, currency-map, xlsx-import
-├── vendor/       SheetJS (P2)
-└── icons/        Ícones do action button
+├── vendor/       SheetJS bundled (Apache-2.0)
+├── icons/        Ícones do action button
+└── .github/      Workflows: ci.yml + release.yml
 ```
+
+## Licenças
+
+Extensão: MIT.
+Dependência embarcada: [SheetJS Community Edition](https://github.com/SheetJS/sheetjs) sob Apache-2.0.
