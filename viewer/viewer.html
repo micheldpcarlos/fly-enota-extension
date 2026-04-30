@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>Fly e-Nota — Dados</title>
+    <link rel="stylesheet" href="viewer.css" />
+  </head>
+  <body>
+    <header class="page-header">
+      <div>
+        <h1 id="title">Carregando…</h1>
+        <p id="counters" class="counters"></p>
+      </div>
+      <div class="search">
+        <input id="search" type="search" placeholder="Buscar por nome, e-mail, ID…" />
+      </div>
+    </header>
+
+    <main>
+      <table id="data-table">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+      <p id="empty" class="empty" hidden>Nenhum dado importado ainda.</p>
+    </main>
+
+    <script src="../shared/form-registry.js"></script>
+    <script src="../shared/storage.js"></script>
+    <script src="viewer.js"></script>
+  </body>
+</html>

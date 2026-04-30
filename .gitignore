@@ -1,0 +1,24 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Node (in case tooling lands later)
+node_modules/
+npm-debug.log*
+
+# Local-only assets — never commit real client data
+*.xlsx
+*.xls
+*.csv
+sample.*
+
+# Stray page snapshots used during development
+Fly\ e-Nota.html
+Fly\ e-Nota_files/
+v2/
