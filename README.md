@@ -13,11 +13,20 @@ Preenche notas de exportação de serviços no portal **Fly e-Nota** (Betha Sist
 | P5 | Passos 29–35 (item + PIS/COFINS) | ✅ — falta smoke-test em produção |
 | P6 | Filtro no dropdown + toast injetado na página | ✅ |
 
-## Carregar a extensão
+## Instalar (recomendado)
 
-1. Abra `chrome://extensions` no Chrome.
-2. Ligue **Modo do desenvolvedor** (canto superior direito).
-3. **Carregar sem compactação** → selecione esta pasta (`fly-enota-extension/`).
+1. Vá para a página de [Releases](../../releases) e baixe o `fly-enota-extension-vX.Y.Z.zip` mais recente.
+2. Extraia o arquivo em uma pasta de sua preferência.
+3. Abra `chrome://extensions` no Chrome.
+4. Ative **Modo do desenvolvedor** (canto superior direito).
+5. Clique em **Carregar sem compactação** e selecione a pasta extraída.
+6. Fixe o ícone na barra de ferramentas para acesso rápido.
+
+## Instalar a partir do código-fonte (desenvolvimento)
+
+1. Clone este repositório.
+2. Em `chrome://extensions`, ligue **Modo do desenvolvedor**.
+3. **Carregar sem compactação** → selecione a pasta clonada (`fly-enota-extension/`).
 4. Fixe o ícone na barra de ferramentas para acesso rápido.
 
 ## Como usar
@@ -42,9 +51,22 @@ A arquitetura é por-formulário. Para suportar uma segunda nota:
 
 A popup e o visualizador funcionam automaticamente — eles iteram sobre o registry.
 
+## Publicando uma nova versão
+
+1. Atualize `version` em `manifest.json` (siga SemVer: `0.1.0` → `0.2.0`).
+2. Commit e push na branch `main`.
+3. Crie e empurre uma tag com o mesmo número, prefixada por `v`:
+
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+4. O workflow `release.yml` valida que a tag bate com a versão do manifesto, gera o zip e publica como GitHub Release com notas automáticas.
+
 ## Estrutura
 
-```
+```text
 fly-enota-extension/
 ├── manifest.json
 ├── popup/        UI do popup (componente form-card por formulário)

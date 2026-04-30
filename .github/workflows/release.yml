@@ -1,0 +1,77 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. v0.1.0). Must already exist.'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish extension zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Read manifest version
+        id: manifest
+        run: |
+          version=$(jq -r '.version' manifest.json)
+          name=$(jq -r '.name' manifest.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "name=$name"       >> "$GITHUB_OUTPUT"
+          echo "Manifest: $name @ $version"
+
+      - name: Verify tag matches manifest version
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          tag_version="${TAG#v}"
+          manifest_version="${{ steps.manifest.outputs.version }}"
+          if [ "$tag_version" != "$manifest_version" ]; then
+            echo "Tag $TAG (= $tag_version) does not match manifest.json version $manifest_version"
+            exit 1
+          fi
+
+      - name: Build zip
+        id: build
+        run: |
+          version="${{ steps.manifest.outputs.version }}"
+          zip_name="fly-enota-extension-v${version}.zip"
+          # Exclude VCS metadata, CI config, and macOS noise.
+          zip -r "$zip_name" . \
+            -x '.git/*' \
+            -x '.github/*' \
+            -x '.gitignore' \
+            -x '**/.DS_Store' \
+            -x '*.zip'
+          ls -la "$zip_name"
+          echo "zip_name=$zip_name" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: ${{ steps.manifest.outputs.name }} ${{ github.event.inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: ${{ steps.build.outputs.zip_name }}
+          body: |
+            ## Instalação
+
+            1. Baixe `${{ steps.build.outputs.zip_name }}` abaixo.
+            2. Extraia o arquivo em uma pasta de sua preferência.
+            3. Abra `chrome://extensions` no Chrome.
+            4. Ative **Modo do desenvolvedor** (canto superior direito).
+            5. Clique em **Carregar sem compactação** e selecione a pasta extraída.
+            6. Fixe o ícone na barra de ferramentas para acesso rápido.
+
+            Veja o [README](https://github.com/${{ github.repository }}#como-usar) para o fluxo de uso completo.

@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    name: Validate manifest and JS syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest.json
+        run: |
+          # Parses as JSON and checks required Manifest V3 fields.
+          jq -e '
+            .manifest_version == 3
+            and (.name | length > 0)
+            and (.version | test("^[0-9]+(\\.[0-9]+){0,3}$"))
+            and (.action.default_popup | length > 0)
+          ' manifest.json
+
+      - name: Check JS syntax
+        run: |
+          # Skips vendored libs (SheetJS) since their syntax is upstream's job.
+          set -e
+          while IFS= read -r f; do
+            node --check "$f"
+            echo "OK $f"
+          done < <(find . -name '*.js' \
+                          -not -path './vendor/*' \
+                          -not -path './node_modules/*')
