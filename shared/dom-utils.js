@@ -7,6 +7,66 @@
   const AJAX_INDICATOR_SELECTOR = 'span.ajaxProcess';
   const SETTLE_MS = 120;
 
+  // ── In-memory log of the current run. Cleared at fill start, persisted to
+  //    chrome.storage.local at fill end so the popup can render it later.
+  const _log = [];
+  let _runStartedAt = null;
+  function log(message, level = 'info', extra = {}) {
+    const entry = { ts: Date.now(), level, message, ...extra };
+    _log.push(entry);
+    // Mirror to devtools.
+    const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
+    fn(`[Fly e-Nota] ${message}`);
+    return entry;
+  }
+  function clearLog() {
+    _log.length = 0;
+    _runStartedAt = Date.now();
+  }
+  function getLog() {
+    return { startedAt: _runStartedAt, entries: _log.slice() };
+  }
+
+  // ── Visual feedback: scroll the field into view and briefly outline it so
+  //    the user can see exactly which field is being touched.
+  function scrollIntoViewIfNeeded(el) {
+    const rect = el.getBoundingClientRect();
+    const margin = 80;
+    const fullyVisible = rect.top >= margin && rect.bottom <= window.innerHeight - margin;
+    if (!fullyVisible) {
+      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch { /* no-op */ }
+    }
+  }
+  const FLASH_STYLE_ID = 'fly-enota-flash-style';
+  function ensureFlashStyle() {
+    if (document.getElementById(FLASH_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = FLASH_STYLE_ID;
+    style.textContent = `
+      @keyframes fly-enota-flash {
+        0%   { box-shadow: 0 0 0 3px rgba(99,102,241,0.85); }
+        100% { box-shadow: 0 0 0 0   rgba(99,102,241,0);    }
+      }
+      .fly-enota-flash {
+        animation: fly-enota-flash 700ms ease-out;
+        position: relative;
+        z-index: 1;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  function flash(el) {
+    ensureFlashStyle();
+    el.classList.remove('fly-enota-flash');
+    // Force reflow so the animation restarts on rapid sequential calls.
+    void el.offsetWidth;
+    el.classList.add('fly-enota-flash');
+  }
+  function focusVisually(el) {
+    scrollIntoViewIfNeeded(el);
+    flash(el);
+  }
+
   function $(id) {
     const el = document.getElementById(id);
     if (!el) throw new Error(`Elemento não encontrado: #${id}`);
@@ -19,6 +79,8 @@
 
   async function setText(id, value, { fireBlur = false } = {}) {
     const el = $(id);
+    focusVisually(el);
+    log(`setText #${id} = ${JSON.stringify(value ?? '')}`, 'info', { id, value });
     el.focus();
     el.value = value ?? '';
     fire(el, 'input');
@@ -28,7 +90,11 @@
 
   async function setSelect(id, value) {
     const el = $(id);
-    if (value == null) return;
+    focusVisually(el);
+    if (value == null) {
+      log(`setSelect #${id} = (skip — null)`, 'warn');
+      return;
+    }
     const v = String(value);
     const has = Array.from(el.options).some((o) => o.value === v);
     if (!has) {
@@ -38,6 +104,8 @@
           ')'
       );
     }
+    const label = Array.from(el.options).find((o) => o.value === v)?.textContent?.trim() ?? '';
+    log(`setSelect #${id} = "${v}" (${label})`, 'info', { id, value: v });
     el.value = v;
     fire(el, 'change');
   }
@@ -47,6 +115,8 @@
       `input[type="radio"][name="${CSS.escape(name)}"][value="${CSS.escape(String(value))}"]`
     );
     if (!el) throw new Error(`Radio name="${name}" value="${value}" não encontrado`);
+    focusVisually(el);
+    log(`setRadio name="${name}" value="${value}"`, 'info');
     el.checked = true;
     // JSF radios use onclick to fire AJAX; click() dispatches a synthetic event
     // that runs the inline handler.
@@ -56,13 +126,18 @@
 
   async function setCheckbox(id, checked) {
     const el = $(id);
+    focusVisually(el);
+    log(`setCheckbox #${id} = ${!!checked}`, 'info');
     if (el.checked === !!checked) return;
     el.click();
     fire(el, 'change');
   }
 
   async function clickButton(id) {
-    $(id).click();
+    const el = $(id);
+    focusVisually(el);
+    log(`clickButton #${id}`, 'info');
+    el.click();
   }
 
   async function sleep(ms) {
@@ -86,6 +161,7 @@
       else if (Date.now() - lastBusyAt >= SETTLE_MS) return;
       await sleep(40);
     }
+    log(`waitForAjaxIdle: timeout após ${timeout}ms`, 'error');
     throw new Error('waitForAjaxIdle: timeout aguardando o servidor');
   }
 
@@ -104,7 +180,9 @@
       obs.observe(document.body, { childList: true, subtree: true });
       setTimeout(() => {
         obs.disconnect();
-        resolve(document.querySelector(selector));
+        const el = document.querySelector(selector);
+        if (!el) log(`waitForElement(${selector}): timeout`, 'warn');
+        resolve(el);
       }, timeout);
     });
   }
@@ -117,6 +195,9 @@
     while (Date.now() - start < timeout) {
       if (el.value && String(el.value).trim() !== '') return el.value;
       await sleep(50);
+    }
+    if (!el.value || String(el.value).trim() === '') {
+      log(`waitForFieldFilled #${id}: timeout (campo continuou vazio)`, 'warn');
     }
     return el.value;
   }
@@ -144,5 +225,8 @@
     waitForFieldFilled,
     sleep,
     formatBRL,
+    log,
+    clearLog,
+    getLog,
   };
 })();

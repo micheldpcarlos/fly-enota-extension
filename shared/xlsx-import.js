@@ -7,6 +7,7 @@
   // Map normalized header → JSON field name. Update here to support new columns.
   const HEADER_MAP = {
     'id':                                       'id',
+    'client':                                   'clientLabel',     // descriptive name, present even when structured fields are empty
     'nome razao social':                        'razaoSocial',
     'telefone':                                 'telefone',
     'e mail':                                   'email',
@@ -70,6 +71,7 @@
     // Specific cleanup per field.
     return {
       id:                    trimOrNull(out.id) ?? '',
+      clientLabel:           trimOrNull(out.clientLabel),
       razaoSocial:           trimOrNull(out.razaoSocial),
       telefone:              digitsOnly(out.telefone),
       email:                 trimOrNull(out.email),

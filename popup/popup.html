@@ -7,10 +7,32 @@
   </head>
   <body>
     <header class="app-header">
-      <h1>Fly e-Nota Auto-fill</h1>
+      <div class="app-brand">
+        <span class="app-logo">⚡</span>
+        <span class="app-title">Fly e-Nota Automator</span>
+      </div>
+      <div class="app-status" id="app-status" data-state="unknown" title="Status da aba ativa">
+        <span class="status-dot"></span>
+        <span class="status-label">Verificando…</span>
+      </div>
     </header>
 
     <main id="cards"></main>
+
+    <section class="logs-panel" id="logs-panel">
+      <button type="button" class="logs-toggle" id="logs-toggle" aria-expanded="false">
+        <span>📋 Logs da última execução</span>
+        <span class="logs-meta" id="logs-meta">—</span>
+      </button>
+      <div class="logs-body" id="logs-body" hidden>
+        <div class="logs-actions">
+          <button type="button" class="btn btn-sm" id="logs-copy">Copiar</button>
+          <button type="button" class="btn btn-sm" id="logs-refresh">Atualizar</button>
+          <button type="button" class="btn btn-sm btn-danger-ghost" id="logs-clear">Limpar</button>
+        </div>
+        <pre id="logs-content" class="logs-content">Sem registros ainda.</pre>
+      </div>
+    </section>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

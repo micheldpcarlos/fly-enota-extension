@@ -51,6 +51,26 @@
     }
   }
 
+  // ── Persist the in-memory log of the current run so the popup can read it.
+  //    Overwritten on every run; no history kept.
+  async function persistRunLogs(meta) {
+    try {
+      const D = globalThis.FlyENotaDOM;
+      const log = D?.getLog?.() ?? { startedAt: Date.now(), entries: [] };
+      await chrome.storage.local.set({
+        lastRun: {
+          ...meta,
+          startedAt: log.startedAt,
+          finishedAt: Date.now(),
+          entries: log.entries,
+          url: location.href,
+        },
+      });
+    } catch (e) {
+      console.warn('[Fly e-Nota] failed to persist run logs', e);
+    }
+  }
+
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     (async () => {
       try {
@@ -79,16 +99,31 @@
           sendResponse({ ok: false, error: `Filler "${form.fillerName}" não registrado.` });
           return;
         }
+        const D = globalThis.FlyENotaDOM;
+        D?.clearLog?.();
+        D?.log?.(`Iniciando: ${msg.client?.razaoSocial ?? '(sem nome)'}`);
         showToast(`Preenchendo: ${msg.client?.razaoSocial ?? '...'}`, 'info');
-        const result = await filler(msg.client);
-        showToast(
-          `✓ Formulário preenchido (${result?.completedThrough ?? '?'} passos). Revise e clique em Emitir.`,
-          'ok'
-        );
-        sendResponse({ ok: true, result });
+        try {
+          const result = await filler(msg.client);
+          D?.log?.(`Concluído: ${result?.completedThrough ?? '?'} passos`, 'info');
+          showToast(
+            `✓ Formulário preenchido (${result?.completedThrough ?? '?'} passos). Revise e clique em Emitir.`,
+            'ok'
+          );
+          await persistRunLogs({ ok: true, completedThrough: result?.completedThrough, client: msg.client });
+          sendResponse({ ok: true, result });
+        } catch (err) {
+          const message = err?.message ?? String(err);
+          console.error('[Fly e-Nota] fill error', err);
+          D?.log?.(`Erro: ${message}`, 'error');
+          showToast(`Erro: ${message}`, 'danger');
+          await persistRunLogs({ ok: false, error: message, client: msg.client });
+          sendResponse({ ok: false, error: message });
+        }
       } catch (err) {
+        // Outer catch covers anything thrown before we even reached the filler.
         const message = err?.message ?? String(err);
-        console.error('[Fly e-Nota] fill error', err);
+        console.error('[Fly e-Nota] router error', err);
         showToast(`Erro: ${message}`, 'danger');
         sendResponse({ ok: false, error: message });
       }

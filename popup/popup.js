@@ -1,11 +1,11 @@
-// Wires each form card: dropdown population, Import XLSX, View Data,
-// and the Apply button (sends the chosen client to the active tab's
-// content script).
+// Wires each form card and the global popup chrome (header status, logs).
 
 (async function () {
   const host = document.getElementById('cards');
   const toast = document.getElementById('toast');
+  const appStatus = document.getElementById('app-status');
 
+  // ── Toast (popup-local) ────────────────────────────────────────────────
   function showToast(message, kind = 'ok') {
     toast.textContent = message;
     toast.className = `toast show ${kind}`;
@@ -15,38 +15,52 @@
     }, 3200);
   }
 
-  function populateDropdown(select, rows) {
-    select.innerHTML = '';
-    if (!rows.length) {
-      const opt = document.createElement('option');
-      opt.textContent = 'Importe um XLSX para começar';
-      opt.value = '';
-      opt.disabled = true;
-      opt.selected = true;
-      select.appendChild(opt);
-      select.disabled = true;
-      return;
+  // ── Active-tab status badge ────────────────────────────────────────────
+  // True when the active tab matches a supported form URL.
+  let isActive = false;
+  let activeUrlHint = '';
+
+  async function refreshAppStatus() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const url = tab?.url ?? '';
+      const matchedForm = (globalThis.FlyENotaForms ?? []).find((f) => f.urlMatch.test(url));
+      isActive = !!matchedForm;
+      activeUrlHint = url;
+      if (matchedForm) {
+        appStatus.dataset.state = 'active';
+        appStatus.querySelector('.status-label').textContent = 'Ativo';
+        appStatus.title = `${matchedForm.title} — ${url}`;
+      } else {
+        appStatus.dataset.state = 'inactive';
+        appStatus.querySelector('.status-label').textContent = 'Inativo';
+        appStatus.title = url
+          ? `Abra o Fly e-Nota para ativar.\nURL atual: ${url}`
+          : 'Abra o Fly e-Nota para ativar.';
+      }
+    } catch {
+      isActive = false;
+      appStatus.dataset.state = 'inactive';
+      appStatus.querySelector('.status-label').textContent = 'Inativo';
     }
-    select.disabled = false;
-    const placeholder = document.createElement('option');
-    placeholder.textContent = '— selecione —';
-    placeholder.value = '';
-    select.appendChild(placeholder);
-    for (const row of rows) {
-      const opt = document.createElement('option');
-      opt.value = row.id ?? row.razaoSocial ?? '';
-      const tag = row._complete ? '' : ' ⚠ incompleto';
-      opt.textContent = `${row.razaoSocial ?? '(sem nome)'}${tag}`;
-      opt.dataset.complete = row._complete ? '1' : '0';
-      select.appendChild(opt);
+    // Re-sync any rendered cards' Apply button.
+    for (const card of host.__cards ?? []) {
+      syncApplyState(card, card.__rows ?? []);
     }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────
+  function fmtCurrency(value, code) {
+    if (value == null || value === '') return '';
+    const num = typeof value === 'number' ? value : Number(String(value).replace(',', '.'));
+    if (!Number.isFinite(num)) return '';
+    return `${code ? code + ' ' : ''}${num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   function summarise(rows) {
     const total = rows.length;
     const complete = rows.filter((r) => r._complete).length;
-    const incomplete = total - complete;
-    return { total, complete, incomplete };
+    return { total, complete, incomplete: total - complete };
   }
 
   function refreshStatus(card, rows) {
@@ -60,44 +74,157 @@
     card.statusLeft.textContent = `${total} cliente${total === 1 ? '' : 's'}`;
     card.statusLeft.className = `pill ${incomplete ? 'warn' : 'ok'}`;
     card.statusRight.textContent = incomplete
-      ? `${complete} ok · ${incomplete} incompleto${incomplete === 1 ? '' : 's'}`
-      : `${complete} ok`;
+      ? `${complete} completo${complete === 1 ? '' : 's'} · ${incomplete} incompleto${incomplete === 1 ? '' : 's'}`
+      : 'Tudo completo';
   }
 
-  function filterRows(rows, query) {
-    const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      [r.id, r.razaoSocial, r.email, r.telefone, r.municipio, r.estado]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q))
-    );
+  // ── Client dropdown ────────────────────────────────────────────────────
+  function rowKey(row) {
+    return String(row.id ?? row.razaoSocial ?? '');
   }
 
-  function syncApplyState(card) {
-    const opt = card.select.selectedOptions[0];
-    const enabled = !!opt && opt.value && opt.dataset.complete === '1';
-    card.apply.disabled = !enabled;
+  function clientMeta(row) {
+    const cityState = [row.municipio, row.estado].filter(Boolean).join(', ');
+    const value = fmtCurrency(row.totalMoedaEstrangeira, row.moedaCodigo);
+    const parts = [];
+    if (cityState) parts.push(cityState);
+    if (value) parts.push(value);
+    if (!row._complete) parts.push(`faltam ${(row._missing ?? []).length} campo${(row._missing ?? []).length === 1 ? '' : 's'}`);
+    return parts.join(' · ');
+  }
+
+  function displayName(row) {
+    return row.razaoSocial ?? row.clientLabel ?? '(sem nome)';
+  }
+
+  function buildClientRow(row, isOption = false) {
+    const wrap = document.createElement(isOption ? 'div' : 'span');
+    wrap.className = `client-row ${row._complete ? 'ok' : 'warn'}`;
+
+    const badge = document.createElement('span');
+    badge.className = 'client-badge';
+    badge.textContent = row._complete ? '✓' : '⚠';
+    badge.title = row._complete ? 'Completo' : `Faltando: ${(row._missing ?? []).join(', ')}`;
+
+    const main = document.createElement('span');
+    main.className = 'client-main';
+    const name = document.createElement('span');
+    name.className = 'client-name';
+    name.textContent = displayName(row);
+    const meta = document.createElement('span');
+    meta.className = 'client-meta';
+    meta.textContent = clientMeta(row) || '—';
+    main.append(name, meta);
+
+    wrap.append(badge, main);
+    return wrap;
+  }
+
+  function setTriggerContent(card, row) {
+    const content = card.trigger.querySelector('.trigger-content');
+    content.innerHTML = '';
+    if (!row) {
+      const ph = document.createElement('span');
+      ph.className = 'trigger-placeholder';
+      ph.textContent = 'Selecione um cliente';
+      content.appendChild(ph);
+    } else {
+      content.appendChild(buildClientRow(row, false));
+    }
+  }
+
+  function populatePanel(card, rows) {
+    card.panel.innerHTML = '';
+    if (!rows.length) {
+      const empty = document.createElement('div');
+      empty.className = 'panel-empty';
+      empty.innerHTML = '📭 Nenhum cliente importado.<br><small>Use <strong>Importar XLSX</strong>.</small>';
+      card.panel.appendChild(empty);
+      return;
+    }
+    for (const row of rows) {
+      const key = rowKey(row);
+      const opt = buildClientRow(row, true);
+      opt.classList.add('client-option');
+      if (card.selectedId === key) opt.classList.add('selected');
+      opt.dataset.id = key;
+      opt.setAttribute('role', 'option');
+      opt.tabIndex = 0;
+      opt.addEventListener('click', () => selectClient(card, rows, key));
+      opt.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          selectClient(card, rows, key);
+        }
+      });
+      card.panel.appendChild(opt);
+    }
+  }
+
+  function openPanel(card) {
+    card.panel.hidden = false;
+    card.trigger.setAttribute('aria-expanded', 'true');
+    card.card.classList.add('dropdown-open');
+  }
+  function closePanel(card) {
+    card.panel.hidden = true;
+    card.trigger.setAttribute('aria-expanded', 'false');
+    card.card.classList.remove('dropdown-open');
+  }
+  function togglePanel(card) {
+    if (card.panel.hidden) openPanel(card);
+    else closePanel(card);
+  }
+
+  function selectClient(card, rows, key) {
+    card.selectedId = key;
+    const row = rows.find((r) => rowKey(r) === key);
+    setTriggerContent(card, row);
+    // Update visual selection in the panel
+    for (const opt of card.panel.querySelectorAll('.client-option')) {
+      opt.classList.toggle('selected', opt.dataset.id === key);
+    }
+    syncApplyState(card, rows);
+    closePanel(card);
+  }
+
+  function syncApplyState(card, rows) {
+    const selected = rows.find((r) => rowKey(r) === card.selectedId);
+    const ok = selected && selected._complete && isActive;
+    card.apply.disabled = !ok;
+    if (!isActive) {
+      card.apply.title = 'Abra a página de Notas Fiscais do Fly e-Nota antes de aplicar.';
+    } else if (selected && !selected._complete) {
+      card.apply.title = `Cliente incompleto: ${(selected._missing ?? []).join(', ')}`;
+    } else if (selected) {
+      card.apply.title = `Aplicar dados de ${displayName(selected)} no formulário`;
+    } else {
+      card.apply.title = 'Selecione um cliente';
+    }
   }
 
   async function refreshCard(form, card) {
     const rows = await globalThis.FlyENotaStorage.getClients(form.id);
-    populateDropdown(card.select, rows);
     refreshStatus(card, rows);
-    card.apply.disabled = true;
-    card.select.onchange = () => syncApplyState(card);
-    card.filter.oninput = () => {
-      const visible = filterRows(rows, card.filter.value);
-      populateDropdown(card.select, visible);
-      syncApplyState(card);
+
+    // Reset selection if the previously-chosen client is gone.
+    if (card.selectedId && !rows.some((r) => rowKey(r) === card.selectedId)) {
+      card.selectedId = null;
+    }
+    setTriggerContent(card, rows.find((r) => rowKey(r) === card.selectedId) ?? null);
+    populatePanel(card, rows);
+    card.__rows = rows; // for refreshAppStatus re-sync
+    syncApplyState(card, rows);
+
+    // Wiring: trigger toggles the panel.
+    card.trigger.onclick = (e) => {
+      e.stopPropagation();
+      togglePanel(card);
     };
     return rows;
   }
 
-  function findRow(rows, value) {
-    return rows.find((r) => String(r.id ?? r.razaoSocial ?? '') === String(value));
-  }
-
+  // ── Actions ────────────────────────────────────────────────────────────
   async function onImport(form, card) {
     return new Promise((resolve) => {
       card.fileInput.value = '';
@@ -114,7 +241,7 @@
           await refreshCard(form, card);
           if (summary.incomplete) {
             showToast(
-              `${summary.total} importados, ${summary.incomplete} incompleto${summary.incomplete === 1 ? '' : 's'} — corrija o XLSX`,
+              `${summary.total} importados, ${summary.incomplete} incompleto${summary.incomplete === 1 ? '' : 's'}`,
               'warn'
             );
           } else {
@@ -136,8 +263,11 @@
   }
 
   async function onApply(form, card, rows) {
-    const value = card.select.value;
-    const client = findRow(rows, value);
+    if (!isActive) {
+      showToast('Inativo: abra a página do Fly e-Nota e tente novamente', 'warn');
+      return;
+    }
+    const client = rows.find((r) => rowKey(r) === card.selectedId);
     if (!client) {
       showToast('Selecione um cliente', 'warn');
       return;
@@ -156,6 +286,7 @@
       return;
     }
     card.apply.disabled = true;
+    card.apply.classList.add('is-loading');
     showToast('Aplicando…', 'ok');
     try {
       const response = await chrome.tabs.sendMessage(tab.id, {
@@ -172,11 +303,104 @@
       showToast(`Erro: ${err.message ?? err}`, 'danger');
     } finally {
       card.apply.disabled = false;
+      card.apply.classList.remove('is-loading');
     }
   }
 
+  // ── Logs panel ─────────────────────────────────────────────────────────
+  const logsToggle = document.getElementById('logs-toggle');
+  const logsBody = document.getElementById('logs-body');
+  const logsMeta = document.getElementById('logs-meta');
+  const logsContent = document.getElementById('logs-content');
+  const logsCopy = document.getElementById('logs-copy');
+  const logsRefresh = document.getElementById('logs-refresh');
+  const logsClear = document.getElementById('logs-clear');
+
+  function fmtTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleTimeString('pt-BR', { hour12: false }) +
+      '.' + String(d.getMilliseconds()).padStart(3, '0');
+  }
+  function fmtRelative(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - ts;
+    if (diff < 60_000) return 'agora há pouco';
+    if (diff < 3600_000) return `há ${Math.floor(diff / 60_000)}min`;
+    if (diff < 86_400_000) return `há ${Math.floor(diff / 3600_000)}h`;
+    return new Date(ts).toLocaleString('pt-BR');
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+  function renderLogs(run) {
+    if (!run || !run.entries?.length) {
+      logsMeta.textContent = 'Nenhum registro ainda';
+      logsMeta.dataset.state = 'idle';
+      logsContent.textContent = 'Rode "Aplicar" para gerar logs.';
+      return;
+    }
+    const dur = run.finishedAt && run.startedAt
+      ? `${((run.finishedAt - run.startedAt) / 1000).toFixed(1)}s`
+      : '?';
+    const stepCount = run.entries.filter((e) => /^▶ Passo/.test(e.message)).length;
+    const status = run.ok ? '✓' : '✗';
+    logsMeta.dataset.state = run.ok ? 'ok' : 'error';
+    logsMeta.textContent = `${status} ${stepCount} passo${stepCount === 1 ? '' : 's'} · ${dur} · ${fmtRelative(run.finishedAt)}`;
+
+    const html = run.entries.map((e) => {
+      const isStep = /^▶ Passo/.test(e.message);
+      const lvl = isStep ? 'step' : (e.level || 'info');
+      const ts = fmtTime(e.ts);
+      return `<span class="ts">[${ts}]</span> <span class="lvl-${lvl}">${escapeHtml(e.message)}</span>`;
+    }).join('\n');
+    logsContent.innerHTML = html;
+  }
+  async function loadLogs() {
+    const { lastRun } = await chrome.storage.local.get('lastRun');
+    renderLogs(lastRun);
+    return lastRun;
+  }
+  logsToggle.addEventListener('click', async () => {
+    const open = logsBody.hidden;
+    logsBody.hidden = !open;
+    logsToggle.setAttribute('aria-expanded', String(open));
+    if (open) await loadLogs();
+  });
+  logsCopy.addEventListener('click', async () => {
+    const { lastRun } = await chrome.storage.local.get('lastRun');
+    if (!lastRun?.entries?.length) {
+      showToast('Sem logs para copiar', 'warn');
+      return;
+    }
+    const text = lastRun.entries
+      .map((e) => `[${fmtTime(e.ts)}] [${(e.level || 'info').toUpperCase()}] ${e.message}`)
+      .join('\n');
+    await navigator.clipboard.writeText(text);
+    showToast('Logs copiados', 'ok');
+  });
+  logsRefresh.addEventListener('click', loadLogs);
+  logsClear.addEventListener('click', async () => {
+    await chrome.storage.local.remove('lastRun');
+    renderLogs(null);
+    showToast('Logs limpos', 'ok');
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.lastRun) return;
+    renderLogs(changes.lastRun.newValue);
+  });
+
+  // ── Boot ───────────────────────────────────────────────────────────────
+  await refreshAppStatus();
+  await loadLogs();
+
+  host.__cards = [];
   for (const form of globalThis.FlyENotaForms ?? []) {
     const card = globalThis.renderFormCard(form, host);
+    host.__cards.push(card);
     let rows = await refreshCard(form, card);
 
     card.importBtn.addEventListener('click', async () => {
@@ -186,4 +410,33 @@
     card.viewBtn.addEventListener('click', () => onView(form));
     card.apply.addEventListener('click', () => onApply(form, card, rows));
   }
+  // Re-sync now that cards exist (refreshAppStatus runs at boot before they do).
+  await refreshAppStatus();
+
+  // Enter shortcut from anywhere fires Apply on the (single) form card.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      for (const panel of document.querySelectorAll('.client-panel:not([hidden])')) {
+        panel.hidden = true;
+        panel.previousElementSibling?.setAttribute('aria-expanded', 'false');
+        panel.parentElement?.parentElement?.classList.remove('dropdown-open');
+      }
+      return;
+    }
+    if (e.key !== 'Enter' || e.target.tagName === 'BUTTON') return;
+    const firstApply = document.querySelector('.btn-apply:not(:disabled)');
+    if (firstApply) firstApply.click();
+  });
+
+  // Click outside any open dropdown closes it.
+  document.addEventListener('click', (e) => {
+    for (const panel of document.querySelectorAll('.client-panel:not([hidden])')) {
+      const dropdown = panel.parentElement; // .client-dropdown
+      if (!dropdown.contains(e.target)) {
+        panel.hidden = true;
+        panel.previousElementSibling?.setAttribute('aria-expanded', 'false');
+        dropdown.parentElement?.parentElement?.classList.remove('dropdown-open');
+      }
+    }
+  });
 })();

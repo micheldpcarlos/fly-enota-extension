@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Fly e-Nota Auto-fill",
+  "name": "Fly e-Nota Automator",
   "version": "0.1.0",
-  "description": "Preenche notas de exportação no Fly e-Nota a partir de uma planilha de clientes.",
+  "description": "Automatiza o preenchimento de notas no Fly e-Nota a partir de uma planilha de clientes.",
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "Fly e-Nota Auto-fill"
+    "default_title": "Fly e-Nota Automator"
   },
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["https://e-gov.betha.com.br/*"],
