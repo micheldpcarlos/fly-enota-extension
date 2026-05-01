@@ -1,14 +1,20 @@
 {
   "manifest_version": 3,
   "name": "Fly e-Nota Automator",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Automatiza o preenchimento de notas no Fly e-Nota a partir de uma planilha de clientes.",
   "action": {
     "default_popup": "popup/popup.html",
     "default_title": "Fly e-Nota Automator"
   },
-  "permissions": ["storage", "activeTab", "scripting"],
-  "host_permissions": ["https://e-gov.betha.com.br/*"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://e-gov.betha.com.br/*"
+  ],
   "content_scripts": [
     {
       "matches": [
@@ -32,8 +38,12 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["viewer/viewer.html"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "viewer/viewer.html"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }
