@@ -29,13 +29,10 @@
 
   // ── Visual feedback: scroll the field into view and briefly outline it so
   //    the user can see exactly which field is being touched.
-  function scrollIntoViewIfNeeded(el) {
-    const rect = el.getBoundingClientRect();
-    const margin = 80;
-    const fullyVisible = rect.top >= margin && rect.bottom <= window.innerHeight - margin;
-    if (!fullyVisible) {
-      try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch { /* no-op */ }
-    }
+  // Always scrolls (centered) — earlier "only if needed" was too conservative
+  // and many fields stayed off-screen because they were "barely visible".
+  function scrollIntoView(el) {
+    try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch { /* no-op */ }
   }
   const FLASH_STYLE_ID = 'fly-enota-flash-style';
   function ensureFlashStyle() {
@@ -62,9 +59,12 @@
     void el.offsetWidth;
     el.classList.add('fly-enota-flash');
   }
-  function focusVisually(el) {
-    scrollIntoViewIfNeeded(el);
+  // Brings the element into view, flashes it, and pauses long enough that
+  // the user actually sees what's being touched before the next step fires.
+  async function focusVisually(el, settle = 180) {
+    scrollIntoView(el);
     flash(el);
+    await sleep(settle);
   }
 
   function $(id) {
@@ -79,7 +79,7 @@
 
   async function setText(id, value, { fireBlur = false } = {}) {
     const el = $(id);
-    focusVisually(el);
+    await focusVisually(el);
     log(`setText #${id} = ${JSON.stringify(value ?? '')}`, 'info', { id, value });
     el.focus();
     el.value = value ?? '';
@@ -90,7 +90,7 @@
 
   async function setSelect(id, value) {
     const el = $(id);
-    focusVisually(el);
+    await focusVisually(el);
     if (value == null) {
       log(`setSelect #${id} = (skip — null)`, 'warn');
       return;
@@ -115,7 +115,7 @@
       `input[type="radio"][name="${CSS.escape(name)}"][value="${CSS.escape(String(value))}"]`
     );
     if (!el) throw new Error(`Radio name="${name}" value="${value}" não encontrado`);
-    focusVisually(el);
+    await focusVisually(el);
     log(`setRadio name="${name}" value="${value}"`, 'info');
     el.checked = true;
     // JSF radios use onclick to fire AJAX; click() dispatches a synthetic event
@@ -126,7 +126,7 @@
 
   async function setCheckbox(id, checked) {
     const el = $(id);
-    focusVisually(el);
+    await focusVisually(el);
     log(`setCheckbox #${id} = ${!!checked}`, 'info');
     if (el.checked === !!checked) return;
     el.click();
@@ -135,7 +135,7 @@
 
   async function clickButton(id) {
     const el = $(id);
-    focusVisually(el);
+    await focusVisually(el);
     log(`clickButton #${id}`, 'info');
     el.click();
   }

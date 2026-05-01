@@ -24,7 +24,17 @@
     'total brl':                                'totalBRL',
     'valor em moeda estrangeira':               'totalMoedaEstrangeiraSheet',
     'valor do servico':                         'valorServicoSheet',
+    'mecanismo de apoio tomador':               'mecanismoApoioTomador',
+    'compartilhar com mdic':                    'compartilharMdic',
   };
+
+  // Cells like "01 - Nenhum" or "0 - Não enviar para o MDIC". Returns the
+  // code only ("01" / "0") so it can drop straight into a <select> value.
+  function extractCode(s) {
+    if (s == null || s === '') return null;
+    const m = String(s).trim().match(/^([A-Za-z0-9]+)\s*-/);
+    return m ? m[1] : String(s).trim();
+  }
 
   function normaliseHeader(h) {
     if (h == null) return '';
@@ -85,6 +95,8 @@
       moedaCodigo:           trimOrNull(out.moedaCodigo)?.toUpperCase() ?? null,
       totalMoedaEstrangeira: toNumber(out.totalMoedaEstrangeira ?? out.totalMoedaEstrangeiraSheet),
       totalBRL:              toNumber(out.totalBRL ?? out.valorServicoSheet),
+      mecanismoApoioTomador: extractCode(out.mecanismoApoioTomador),
+      compartilharMdic:      extractCode(out.compartilharMdic),
     };
   }
 
