@@ -110,6 +110,37 @@
     fire(el, 'change');
   }
 
+  // Selects the <option> whose visible label ends with "(CODE)", e.g. "(AUD)".
+  // e-Nota's option *values* don't reliably match the ISO-4217 numeric code
+  // (AUD is value="30", not "036"), so we match on the alpha-3 code in the
+  // label and read back whatever value the form uses. The parenthesized code
+  // is plain ASCII, so this is also immune to the page's mojibake.
+  async function setSelectByLabelCode(id, code) {
+    const el = $(id);
+    await focusVisually(el);
+    if (code == null || String(code).trim() === '') {
+      log(`setSelectByLabelCode #${id} = (skip — vazio)`, 'warn');
+      return;
+    }
+    const wanted = String(code).trim().toUpperCase();
+    const codeOf = (o) => (o.textContent.match(/\(([A-Za-z]{3})\)\s*$/)?.[1] ?? '').toUpperCase();
+    const match = Array.from(el.options).find((o) => codeOf(o) === wanted);
+    if (!match) {
+      throw new Error(
+        `Select #${id}: código "${wanted}" não encontrado nos rótulos (` +
+          Array.from(el.options).map(codeOf).filter(Boolean).join(',') +
+          ')'
+      );
+    }
+    log(
+      `setSelectByLabelCode #${id} = "${match.value}" (${match.textContent.trim()})`,
+      'info',
+      { id, value: match.value }
+    );
+    el.value = match.value;
+    fire(el, 'change');
+  }
+
   async function setRadio(name, value) {
     const el = document.querySelector(
       `input[type="radio"][name="${CSS.escape(name)}"][value="${CSS.escape(String(value))}"]`
@@ -217,6 +248,7 @@
     $,
     setText,
     setSelect,
+    setSelectByLabelCode,
     setRadio,
     setCheckbox,
     clickButton,

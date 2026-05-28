@@ -124,16 +124,12 @@
     );
     await D.waitForAjaxIdle();
 
-    // ── 23) Código da moeda da transação (USD → 840, etc.). ────────────────
+    // ── 23) Código da moeda da transação. Casamos pelo código alfa-3 do
+    //    rótulo (ex.: "(AUD)"), e não pelo value numérico: os values do e-Nota
+    //    não seguem o ISO-4217 (AUD é value="30", não "036").
     const moedaCodigo = requireField(client, 'moedaCodigo');
-    const moedaNumeric = globalThis.FlyENotaCurrency?.toNumeric(moedaCodigo);
-    if (!moedaNumeric) {
-      throw new Error(
-        `Moeda "${moedaCodigo}" não mapeada — adicione em shared/currency-map.js`
-      );
-    }
-    step(`Código moeda → ${moedaCodigo} (${moedaNumeric})`);
-    await D.setSelect('mainForm:comExtTipoMoeda', moedaNumeric);
+    step(`Código moeda → ${moedaCodigo}`);
+    await D.setSelectByLabelCode('mainForm:comExtTipoMoeda', moedaCodigo);
 
     // ── 24) Mecanismo de apoio - Prestador → 01 (Nenhum). ──────────────────
     step('Mecanismo apoio Prestador → 01 (Nenhum)');

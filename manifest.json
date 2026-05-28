@@ -22,7 +22,6 @@
         "https://e-gov.betha.com.br/e-nota-test/contribuinte/*"
       ],
       "js": [
-        "shared/currency-map.js",
         "shared/dom-utils.js",
         "shared/form-registry.js",
         "content/forms/flyenota-exportacao.js",
