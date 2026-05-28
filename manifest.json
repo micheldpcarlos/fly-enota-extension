@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Fly e-Nota Automator",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Automatiza o preenchimento de notas no Fly e-Nota a partir de uma planilha de clientes.",
   "action": {
     "default_popup": "popup/popup.html",
