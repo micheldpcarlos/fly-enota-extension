@@ -19,7 +19,7 @@
     compartilharMdic: '0',          // 0 - Não enviar para o MDIC — fallback se XLSX vazio
     movTempBens: '1',               // Não
     discriminacao: 'Serviços de desenho técnico em CAD',
-    quantidade: '1,0000',
+    tipoDeducao: 'V',               // Valor monetário (R$)
     descCondicionado: '0,00',
     descIncondicionado: '0,00',
     cstPisCofins: '08',             // 08 - Operação sem incidência da Contribuição
@@ -155,7 +155,8 @@
     step('Discriminação');
     await D.setText('mainForm:discriminacao', STATIC.discriminacao);
 
-    // ── 29) Valor do serviço (unit price; quantity is 1, so unit = total BRL).
+    // ── 29) Valor do serviço (no quantity anymore — the tabbed layout dropped
+    //    the "Quantidade" field, so this is the total BRL directly).
     const totalBRL = requireField(client, 'totalBRL');
     step(`Valor do serviço → ${totalBRL}`);
     await D.setText(
@@ -165,26 +166,22 @@
     );
     await D.waitForAjaxIdle();
 
-    // ── 30) Quantidade → 1. ────────────────────────────────────────────────
-    step('Quantidade → 1');
-    await D.setText('mainForm:quantidade', STATIC.quantidade, { fireBlur: true });
-    await D.waitForAjaxIdle();
-
-    // ── 31) Desc. condicionado → 0. ────────────────────────────────────────
+    // ── 30) Desc. condicionado → 0. ────────────────────────────────────────
     step('Desc. condicionado → 0');
     await D.setText('mainForm:descCondicionado', STATIC.descCondicionado, { fireBlur: true });
 
-    // ── 32) Desc. incondicionado → 0. ──────────────────────────────────────
+    // ── 31) Desc. incondicionado → 0. ──────────────────────────────────────
     step('Desc. incondicionado → 0');
     await D.setText('mainForm:descIncondicionado', STATIC.descIncondicionado, { fireBlur: true });
     await D.waitForAjaxIdle();
 
-    // ── 33) É dedução por valor → Sim (checkbox, normally already checked).
-    step('Dedução por valor → Sim');
-    await D.setCheckbox('mainForm:tipoDeducao', true);
+    // ── 32) Tipo de dedução → V (Valor monetário). Was a checkbox ("É dedução
+    //    por valor"); the tabbed layout turned it into a select V/P.
+    step('Tipo de dedução → Valor monetário (R$)');
+    await D.setSelect('mainForm:tipoDeducao', STATIC.tipoDeducao);
     await D.waitForAjaxIdle();
 
-    // ── 34) Situação Tributária PIS/COFINS → 08. ───────────────────────────
+    // ── 33) Situação Tributária PIS/COFINS → 08. ───────────────────────────
     step(`PIS/COFINS → ${STATIC.cstPisCofins}`);
     await D.setSelect('mainForm:cst', STATIC.cstPisCofins);
     await D.waitForAjaxIdle();

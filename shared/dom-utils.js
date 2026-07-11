@@ -59,9 +59,55 @@
     void el.offsetWidth;
     el.classList.add('fly-enota-flash');
   }
-  // Brings the element into view, flashes it, and pauses long enough that
-  // the user actually sees what's being touched before the next step fires.
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  // The DPS form is split into tabs ("Pessoas", "Serviço", "Valores", …).
+  // Each tab is an `h3#topicNN…` header followed by a `div#topicNN…Content`
+  // panel; inactive panels get `display: none`. Before touching a field we
+  // activate every ancestor tab panel the same way the portal's own
+  // SystemMessages.activeTab does: click the header whose id is the panel id
+  // minus the "Content" suffix.
+  async function activateTabFor(el) {
+    const panels = [];
+    for (let p = el.closest?.('div.topicContent'); p; p = p.parentElement?.closest('div.topicContent')) {
+      panels.unshift(p); // outermost first
+    }
+    for (const panel of panels) {
+      if (window.getComputedStyle(panel).display !== 'none') continue;
+      const headerId = panel.id.replace(/Content$/, '');
+      const header = document.getElementById(headerId);
+      if (!header) {
+        log(`Aba: cabeçalho #${headerId} não encontrado`, 'warn');
+        continue;
+      }
+      log(`Ativando aba "${header.textContent.trim()}"`);
+      // The handler may sit on the h3 or its inner <a>; clicking the <a>
+      // covers both (the event bubbles up to the h3).
+      (header.querySelector('a') ?? header).click();
+      const start = Date.now();
+      while (Date.now() - start < 2000) {
+        if (window.getComputedStyle(panel).display !== 'none') break;
+        await sleep(40);
+      }
+      if (window.getComputedStyle(panel).display === 'none') {
+        // Click didn't take (handler not bound yet?) — toggle manually.
+        log(`Aba "${header.textContent.trim()}": clique sem efeito, forçando exibição`, 'warn');
+        const group = panel.parentElement;
+        group?.querySelectorAll(':scope > div.topicContent').forEach((c) => {
+          c.style.display = c === panel ? 'inline-block' : 'none';
+        });
+        group?.querySelectorAll(':scope > h3').forEach((h) => {
+          h.classList.toggle('tabActive', h.id === headerId);
+          h.classList.toggle('tabNormal', h.id !== headerId);
+        });
+      }
+    }
+  }
+
+  // Brings the element into view (activating its tab first), flashes it, and
+  // pauses long enough that the user actually sees what's being touched
+  // before the next step fires.
   async function focusVisually(el, settle = 180) {
+    await activateTabFor(el);
     scrollIntoView(el);
     flash(el);
     await sleep(settle);
@@ -246,6 +292,7 @@
 
   globalThis.FlyENotaDOM = {
     $,
+    activateTabFor,
     setText,
     setSelect,
     setSelectByLabelCode,
