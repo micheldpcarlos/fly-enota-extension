@@ -41,6 +41,7 @@
         { key: 'municipio',             label: 'Município' },
         { key: 'estado',                label: 'Estado' },
         { key: 'cep',                   label: 'CEP' },
+        { key: 'paisCodigo',            label: 'País' },
         { key: 'moedaCodigo',           label: 'Moeda' },
         { key: 'totalMoedaEstrangeira', label: 'Valor (estr.)' },
         { key: 'totalBRL',              label: 'Total BRL' },

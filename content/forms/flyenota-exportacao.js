@@ -8,7 +8,7 @@
     naturezaOperacao: '8',          // Exportação
     tomadorTipo: 'E',               // Tomador Estrangeiro
     motivoNif: '0',                 // 0 - Não informado na nota de origem
-    paisCodigo: '62',               // Estados Unidos
+    paisCodigo: '62',               // Estados Unidos — fallback se XLSX vazio
     regimeTributacao: '0',          // Nenhum
     listaServicos: '07.03.01',
     nbs: '1.1409.90.00',
@@ -18,7 +18,7 @@
     mecanismoApoioTomador: '01',    // Nenhum (Tomador) — fallback se XLSX vazio
     compartilharMdic: '0',          // 0 - Não enviar para o MDIC — fallback se XLSX vazio
     movTempBens: '1',               // Não
-    discriminacao: 'Serviços de desenho técnico em CAD',
+    discriminacao: 'Serviços de desenho técnico em CAD', // fallback se XLSX vazio
     tipoDeducao: 'V',               // Valor monetário (R$)
     descCondicionado: '0,00',
     descIncondicionado: '0,00',
@@ -73,9 +73,11 @@
     step('Município');   await D.setText('mainForm:municipioTomadorE',   requireField(client, 'municipio'));
     step('CEP');         await D.setText('mainForm:cepTE',               requireField(client, 'cep'));
 
-    // ── 14) País → 62 (server populates `nomePaisTomador`). ────────────────
-    step(`País → ${STATIC.paisCodigo}`);
-    await D.setText('mainForm:iPaisesTomador', STATIC.paisCodigo, { fireBlur: true });
+    // ── 14) País do tomador — código da coluna "País" do XLSX (server
+    //    populates `nomePaisTomador`).
+    const paisTomador = client.paisCodigo ?? STATIC.paisCodigo;
+    step(`País → ${paisTomador}`);
+    await D.setText('mainForm:iPaisesTomador', paisTomador, { fireBlur: true });
     await D.waitForAjaxIdle();
     await D.waitForFieldFilled('mainForm:nomePaisTomador', 5000);
 
@@ -100,11 +102,24 @@
     step('Alíquota — clicar primeira linha LC 155/2016');
     await clickFirstAliquotaRow(D);
 
-    // ── 19) País (Prestado no país) → 62. ──────────────────────────────────
-    step(`País prestado → ${STATIC.paisCodigo}`);
-    await D.setText('mainForm:iPaisesS', STATIC.paisCodigo, { fireBlur: true });
+    // ── 19) País (Prestado no país) — coluna "País (Prestado no país)" do
+    //    XLSX; cai para o país do tomador quando ausente.
+    const paisServico = client.paisServicoCodigo ?? paisTomador;
+    step(`País prestado → ${paisServico}`);
+    await D.setText('mainForm:iPaisesS', paisServico, { fireBlur: true });
     await D.waitForAjaxIdle();
     await D.waitForFieldFilled('mainForm:nomePaisS', 5000);
+
+    // ── 19b) País resultado — campo novo do layout v3, mesmo código do
+    //    "Prestado no país" (server populates `nomePaisResultadoServico`).
+    if (document.getElementById('mainForm:paisResultadoServico')) {
+      step(`País resultado → ${paisServico}`);
+      await D.setText('mainForm:paisResultadoServico', paisServico, { fireBlur: true });
+      await D.waitForAjaxIdle();
+      await D.waitForFieldFilled('mainForm:nomePaisResultadoServico', 5000);
+    } else {
+      D.log('País resultado: campo não existe neste layout — pulado', 'warn');
+    }
 
     // ── 20) Modo de Prestação → 1 (Transfronteiriço). ──────────────────────
     step('Modo de Prestação → 1 (Transfronteiriço)');
@@ -131,9 +146,10 @@
     step(`Código moeda → ${moedaCodigo}`);
     await D.setSelectByLabelCode('mainForm:comExtTipoMoeda', moedaCodigo);
 
-    // ── 24) Mecanismo de apoio - Prestador → 01 (Nenhum). ──────────────────
-    step('Mecanismo apoio Prestador → 01 (Nenhum)');
-    await D.setSelect('mainForm:comExtMecAfComexP', STATIC.mecanismoApoio);
+    // ── 24) Mecanismo de apoio - Prestador (vem do XLSX, fallback 01). ─────
+    const mecApoioPrestador = client.mecanismoApoioPrestador ?? STATIC.mecanismoApoio;
+    step(`Mecanismo apoio Prestador → ${mecApoioPrestador}`);
+    await D.setSelect('mainForm:comExtMecAfComexP', mecApoioPrestador);
 
     // ── 25) Mecanismo de apoio - Tomador (vem do XLSX, fallback 01). ───────
     const mecApoioTomador = client.mecanismoApoioTomador ?? STATIC.mecanismoApoioTomador;
@@ -151,9 +167,11 @@
 
     // Nº DI / Nº RE: deixar em branco.
 
-    // ── 28) Discriminação do serviço. ──────────────────────────────────────
+    // ── 28) Discriminação do serviço (coluna "Discriminação do serviço" do
+    //    XLSX, fallback no texto padrão).
+    const discriminacao = client.discriminacao ?? STATIC.discriminacao;
     step('Discriminação');
-    await D.setText('mainForm:discriminacao', STATIC.discriminacao);
+    await D.setText('mainForm:discriminacao', discriminacao);
 
     // ── 29) Valor do serviço (no quantity anymore — the tabbed layout dropped
     //    the "Quantidade" field, so this is the total BRL directly).

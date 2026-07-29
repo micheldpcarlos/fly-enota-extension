@@ -1,11 +1,11 @@
 # Fly e-Nota Automator — Chrome extension
 
-Automatiza o preenchimento de notas de exportação de serviços no portal **Fly e-Nota** (Betha Sistemas) a partir de uma planilha de clientes. Você importa um XLSX uma vez, escolhe o cliente no popup e a extensão preenche os 33 passos do formulário automaticamente. A emissão final continua manual — a extensão nunca clica em **Emitir**.
+Automatiza o preenchimento de notas de exportação de serviços no portal **Fly e-Nota** (Betha Sistemas) a partir de uma planilha de clientes. Você importa um XLSX uma vez, escolhe o cliente no popup e a extensão preenche os 34 passos do formulário automaticamente. A emissão final continua manual — a extensão nunca clica em **Emitir**.
 
 ## Recursos
 
 - 📥 Importa clientes de uma planilha XLSX e armazena no `chrome.storage.local`.
-- 🎯 Preenche automaticamente os 33 passos da DPS de exportação (incluindo o clique na linha de alíquota da LC 155/2016 quando aplicável).
+- 🎯 Preenche automaticamente os 34 passos da DPS de exportação (incluindo o clique na linha de alíquota da LC 155/2016 quando aplicável).
 - 🗂️ Suporta o novo layout em abas (**Pessoas / Serviço / Valores / IBS/CBS / Outras informações**) — a extensão troca de aba automaticamente antes de preencher cada campo.
 - 🔄 Funciona tanto no portal de produção quanto no ambiente de homologação (`/e-nota/` e `/e-nota-test/`).
 - 🟢 Indicador **Ativo / Inativo** no topo da popup mostra se a aba atual é a do Fly e-Nota.

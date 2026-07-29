@@ -19,6 +19,9 @@
     'municipio':                                'municipio',
     'codigo postal':                            'cep',
     'pais':                                     'paisCodigo',
+    'pais prestado no pais':                    'paisServicoCodigo',
+    'discriminacao do servico':                 'discriminacao',
+    'mecanismo de apoio prestador':             'mecanismoApoioPrestador',
     'currency':                                 'moedaCodigo',
     'total':                                    'totalMoedaEstrangeira',
     'total brl':                                'totalBRL',
@@ -79,6 +82,9 @@
     }
 
     // Specific cleanup per field.
+    // País do tomador vale como fallback para o país do serviço: a planilha
+    // costuma repetir o mesmo código nas duas colunas.
+    const paisCodigo = extractCode(out.paisCodigo) ?? '62';
     return {
       id:                    trimOrNull(out.id) ?? '',
       clientLabel:           trimOrNull(out.clientLabel),
@@ -91,10 +97,13 @@
       estado:                trimOrNull(out.estado),
       municipio:             trimOrNull(out.municipio),
       cep:                   digitsOnly(out.cep) || trimOrNull(out.cep),
-      paisCodigo:            trimOrNull(out.paisCodigo) ?? '62',
+      paisCodigo,
+      paisServicoCodigo:     extractCode(out.paisServicoCodigo) ?? paisCodigo,
+      discriminacao:         trimOrNull(out.discriminacao),
       moedaCodigo:           trimOrNull(out.moedaCodigo)?.toUpperCase() ?? null,
       totalMoedaEstrangeira: toNumber(out.totalMoedaEstrangeira ?? out.totalMoedaEstrangeiraSheet),
       totalBRL:              toNumber(out.totalBRL ?? out.valorServicoSheet),
+      mecanismoApoioPrestador: extractCode(out.mecanismoApoioPrestador),
       mecanismoApoioTomador: extractCode(out.mecanismoApoioTomador),
       compartilharMdic:      extractCode(out.compartilharMdic),
     };

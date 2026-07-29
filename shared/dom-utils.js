@@ -142,17 +142,23 @@
       return;
     }
     const v = String(value);
-    const has = Array.from(el.options).some((o) => o.value === v);
-    if (!has) {
+    const options = Array.from(el.options);
+    let match = options.find((o) => o.value === v);
+    // e-Nota mistura códigos com e sem zero à esquerda ("01 - Nenhum" vs
+    // "0 - Não enviar") e as planilhas derrapam no sentido oposto, então
+    // caímos para comparação numérica quando o valor exato não existe.
+    if (!match && /^\d+$/.test(v)) {
+      match = options.find((o) => /^\d+$/.test(o.value) && Number(o.value) === Number(v));
+    }
+    if (!match) {
       throw new Error(
         `Select #${id}: valor "${v}" não encontrado nas opções (` +
-          Array.from(el.options).map((o) => o.value).join(',') +
+          options.map((o) => o.value).join(',') +
           ')'
       );
     }
-    const label = Array.from(el.options).find((o) => o.value === v)?.textContent?.trim() ?? '';
-    log(`setSelect #${id} = "${v}" (${label})`, 'info', { id, value: v });
-    el.value = v;
+    log(`setSelect #${id} = "${match.value}" (${match.textContent?.trim() ?? ''})`, 'info', { id, value: match.value });
+    el.value = match.value;
     fire(el, 'change');
   }
 
